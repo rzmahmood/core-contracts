@@ -7,6 +7,24 @@ import "@openzeppelin/contracts/proxy/Clones.sol";
 import "../interfaces/root/IRootERC20Predicate.sol";
 import "../interfaces/IStateSender.sol";
 
+interface IWETH9 {
+    function balanceOf(address owner) external view returns (uint256);
+
+    function allowance(address owner, address spender) external view returns (uint256);
+
+    function deposit() external payable;
+
+    function withdraw(uint wad) external;
+
+    function totalSupply() external view returns (uint256);
+
+    function approve(address guy, uint wad) external returns (bool);
+
+    function transfer(address dst, uint wad) external returns (bool);
+
+    function transferFrom(address src, address dst, uint wad) external returns (bool);
+}
+
 // solhint-disable reason-string
 contract RootERC20Predicate is Initializable, IRootERC20Predicate {
     using SafeERC20 for IERC20Metadata;
@@ -15,9 +33,12 @@ contract RootERC20Predicate is Initializable, IRootERC20Predicate {
     address public exitHelper;
     address public childERC20Predicate;
     address public childTokenTemplate;
+    address public wethAddress;
+
     bytes32 public constant DEPOSIT_SIG = keccak256("DEPOSIT");
     bytes32 public constant WITHDRAW_SIG = keccak256("WITHDRAW");
     bytes32 public constant MAP_TOKEN_SIG = keccak256("MAP_TOKEN");
+
     mapping(address => address) public rootTokenToChildToken;
 
     /**
@@ -72,6 +93,31 @@ contract RootERC20Predicate is Initializable, IRootERC20Predicate {
      */
     function deposit(IERC20Metadata rootToken, uint256 amount) external {
         _deposit(rootToken, msg.sender, amount);
+    }
+
+    // NOTE: This is just dummy PoC code and would not be exposed like this
+    function setWethAddress(address _wethAddress) external {
+        wethAddress = _wethAddress;
+    }
+
+    function depositNative(address receiver) external payable {
+        require(wethAddress != address(0), "RootERC20Predicate: WETH_NOT_SET");
+        IWETH9(wethAddress).deposit{value: msg.value}();
+
+        address childToken = rootTokenToChildToken[wethAddress];
+
+        if (childToken == address(0)) {
+            childToken = mapToken(IERC20Metadata(wethAddress));
+        }
+
+        assert(childToken != address(0)); // invariant because we map the token if mapping does not exist
+
+        stateSender.syncState(
+            childERC20Predicate,
+            abi.encode(DEPOSIT_SIG, wethAddress, msg.sender, receiver, msg.value)
+        );
+        // slither-disable-next-line reentrancy-events
+        emit ERC20Deposit(address(wethAddress), childToken, msg.sender, receiver, msg.value);
     }
 
     /**

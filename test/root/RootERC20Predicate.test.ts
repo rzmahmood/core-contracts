@@ -15,15 +15,15 @@ import { setBalance, impersonateAccount } from "@nomicfoundation/hardhat-network
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 
 describe("RootERC20Predicate", () => {
-  let rootERC20Predicate: RootERC20Predicate,
-    exitHelperRootERC20Predicate: RootERC20Predicate,
-    stateSender: StateSender,
-    exitHelper: ExitHelper,
-    childERC20Predicate: string,
-    childTokenTemplate: ChildERC20,
-    rootToken: MockERC20,
-    totalSupply: number = 0,
-    accounts: SignerWithAddress[];
+  let rootERC20Predicate: RootERC20Predicate;
+  let exitHelperRootERC20Predicate: RootERC20Predicate;
+  let stateSender: StateSender;
+  let exitHelper: ExitHelper;
+  let childERC20Predicate: string;
+  let childTokenTemplate: ChildERC20;
+  let rootToken: MockERC20;
+  let totalSupply: number = 0;
+  let accounts: SignerWithAddress[];
   before(async () => {
     accounts = await ethers.getSigners();
 
@@ -202,6 +202,25 @@ describe("RootERC20Predicate", () => {
     expect(depositEvent?.args?.depositor).to.equal(accounts[0].address);
     expect(depositEvent?.args?.receiver).to.equal(accounts[0].address);
     expect(depositEvent?.args?.amount).to.equal(ethers.utils.parseUnits(String(randomAmount)));
+  });
+
+  it("REZ: deposit native token: success", async () => {
+    const rez = accounts[10].address;
+    setBalance(rez, "0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF");
+    await rootERC20Predicate.setWethAddress();
+    await rootERC20Predicate.depositNative(rez, { value: 1000 });
+    // const depositTx = await rootERC20Predicate.depositNative(
+    //   tempRootToken.address,
+    //   ethers.utils.parseUnits(String(randomAmount))
+    // );
+    // const depositReceipt = await depositTx.wait();
+    // const depositEvent = depositReceipt?.events?.find((log: any) => log.event === "ERC20Deposit");
+    // const childToken = await rootERC20Predicate.rootTokenToChildToken(tempRootToken.address);
+    // expect(depositEvent?.args?.rootToken).to.equal(tempRootToken.address);
+    // expect(depositEvent?.args?.childToken).to.equal(childToken);
+    // expect(depositEvent?.args?.depositor).to.equal(accounts[0].address);
+    // expect(depositEvent?.args?.receiver).to.equal(accounts[0].address);
+    // expect(depositEvent?.args?.amount).to.equal(ethers.utils.parseUnits(String(randomAmount)));
   });
 
   it("deposit tokens to same address: success", async () => {
